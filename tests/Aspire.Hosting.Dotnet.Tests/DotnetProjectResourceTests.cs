@@ -367,6 +367,34 @@ public class DotnetProjectResourceTests(ITestOutputHelper outputHelper)
             arg => Assert.Equal("prod.yaml", arg));
     }
 
+    [Fact]
+    public async Task AddDotnetProject_InDebugSession_OmitsDotnetRunScaffolding_WhenOwnedEntrypointIsEmpty()
+    {
+        // Entrypoint ownership, rather than the number of values it produces, determines who supplies the project
+        // launch. A no-op custom entrypoint must still suppress `dotnet run`; DCP consequently cannot offer this
+        // IDE-only command line as a Process fallback.
+        using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Run);
+
+        builder.Configuration["DEBUG_SESSION_PORT"] = "5678";
+        builder.Configuration["DEBUG_SESSION_INFO"] = JsonSerializer.Serialize(new RunSessionInfo
+        {
+            ProtocolsSupported = ["test"],
+            SupportedLaunchConfigurations = ["custom"]
+        });
+
+        var projectPath = Path.Combine(builder.AppHostDirectory, "MyService", "MyService.csproj");
+        var app = builder.AddDotnetProject("svc", projectPath, o => o.ExcludeLaunchProfile = true)
+                         .WithArgs("--config", "prod.yaml")
+                         .WithDebugSupport(_ => new ExecutableLaunchConfiguration("custom"), "custom", static _ => { });
+
+        using var application = builder.Build();
+        var args = await ArgumentEvaluator.GetArgumentListAsync(app.Resource, application.Services);
+
+        Assert.Collection(args,
+            arg => Assert.Equal("--config", arg),
+            arg => Assert.Equal("prod.yaml", arg));
+    }
+
     [Theory]
     [InlineData(PersistenceMode.Persistent)]
     [InlineData(PersistenceMode.ParentProcess)]
