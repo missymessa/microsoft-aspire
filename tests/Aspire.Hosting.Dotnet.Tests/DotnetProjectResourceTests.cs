@@ -340,7 +340,7 @@ public class DotnetProjectResourceTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task AddDotnetProject_InDebugSession_OmitsDotnetRunScaffolding_WhenActiveCustomDebugSupportOwnsEntrypointArgs()
     {
-        // A stacked custom WithDebugSupport that declares entrypoint arguments owns the tool invocation, so no
+        // A stacked custom debug configuration with entrypoint arguments owns the tool invocation, so no
         // Process fallback is offered and Spec.Args is composed from that entrypoint plus the program arguments.
         // The `dotnet run …` scaffolding must be omitted; re-emitting it would duplicate the tool invocation.
         using var builder = TestDistributedApplicationBuilder.Create(DistributedApplicationOperation.Run);
@@ -355,7 +355,8 @@ public class DotnetProjectResourceTests(ITestOutputHelper outputHelper)
         var projectPath = Path.Combine(builder.AppHostDirectory, "MyService", "MyService.csproj");
         var app = builder.AddDotnetProject("svc", projectPath, o => o.ExcludeLaunchProfile = true)
                          .WithArgs("--config", "prod.yaml")
-                         .WithDebugSupport(_ => new ExecutableLaunchConfiguration("custom"), "custom", ctx => ctx.Args.Add("entrypoint-arg"));
+                         .WithEntrypointArgs("custom", ctx => ctx.Args.Add("entrypoint-arg"))
+                         .WithDebugSupport(_ => new ExecutableLaunchConfiguration("custom"), "custom");
 
         using var application = builder.Build();
         var args = await ArgumentEvaluator.GetArgumentListAsync(app.Resource, application.Services);
@@ -385,7 +386,8 @@ public class DotnetProjectResourceTests(ITestOutputHelper outputHelper)
         var projectPath = Path.Combine(builder.AppHostDirectory, "MyService", "MyService.csproj");
         var app = builder.AddDotnetProject("svc", projectPath, o => o.ExcludeLaunchProfile = true)
                          .WithArgs("--config", "prod.yaml")
-                         .WithDebugSupport(_ => new ExecutableLaunchConfiguration("custom"), "custom", static _ => { });
+                         .WithEntrypointArgs("custom", static _ => { })
+                         .WithDebugSupport(_ => new ExecutableLaunchConfiguration("custom"), "custom");
 
         using var application = builder.Build();
         var args = await ArgumentEvaluator.GetArgumentListAsync(app.Resource, application.Services);

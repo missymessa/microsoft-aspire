@@ -3230,7 +3230,7 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
     [Fact]
     public async Task ProjectResource_WithEntrypointArgumentsDebugSupport_DoesNotOfferProcessFallback_InDebugSession()
     {
-        // A ProjectResource can, via the generic WithDebugSupport(entrypointArgsCallback: ...), declare a tool
+        // A ProjectResource can, via the generic WithEntrypointArgs API, declare a tool
         // invocation prefix (ProjectResource implements IResourceWithArgs). That prefix is withheld from Spec.Args
         // for the IDE, so DCP must NOT advertise a Process fallback that would later run a broken command. This
         // mirrors the guard already applied to plain executables in PreparePlainExecutables.
@@ -3244,10 +3244,11 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
             projectBuilder.Resource.Annotations.Remove(defaultAnnotation);
         }
 
-        projectBuilder.WithDebugSupport(
-            mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
-            "test",
-            entrypointArgsCallback: ctx => ctx.Args.Add("run"));
+        projectBuilder
+            .WithEntrypointArgs("test", ctx => ctx.Args.Add("run"))
+            .WithDebugSupport(
+                mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
+                "test");
 
         using var app = builder.Build();
         var model = app.Services.GetRequiredService<DistributedApplicationModel>();
@@ -3999,10 +4000,11 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         });
 
         var resource = builder.AddProject<Projects.ServiceA>("ServiceA").WithTerminal();
-        resource.WithDebugSupport(
-            mode => new ProjectLaunchConfiguration { ProjectPath = "/test/path", Mode = mode },
-            "project",
-            entrypointArgsCallback: ctx => ctx.Args.Add("entrypoint-arg"));
+        resource
+            .WithEntrypointArgs("project", ctx => ctx.Args.Add("entrypoint-arg"))
+            .WithDebugSupport(
+                mode => new ProjectLaunchConfiguration { ProjectPath = "/test/path", Mode = mode },
+                "project");
 
         // Simulate a debug session whose capability list advertises "project" support.
         var configDict = new Dictionary<string, string?>
@@ -5466,10 +5468,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         var debuggableExecutable = new TestExecutableResource("test-working-directory");
         builder.AddResource(debuggableExecutable)
             .WithArgs("app-arg")
+            .WithEntrypointArgs("test", static ctx => ctx.Args.Add("run"))
             .WithDebugSupport(
                 mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
-                "test",
-                entrypointArgsCallback: static ctx => ctx.Args.Add("run"));
+                "test");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5519,10 +5521,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         var debuggableExecutable = new TestExecutableResource("test-working-directory");
         builder.AddResource(debuggableExecutable)
             .WithArgs("app-arg")
+            .WithEntrypointArgs("test", static _ => { })
             .WithDebugSupport(
                 mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
-                "test",
-                entrypointArgsCallback: static _ => { });
+                "test");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5557,10 +5559,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         var resource = new TestExecutableResource("test-working-directory");
         builder.AddResource(resource)
             .WithArgs("app-arg")
+            .WithEntrypointArgs("test", static ctx => ctx.Args.Add("run"))
             .WithDebugSupport(
                 ThrowingLaunchConfiguration,
-                "test",
-                entrypointArgsCallback: static ctx => ctx.Args.Add("run"));
+                "test");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5608,10 +5610,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         var resource = new TestExecutableResource("test-working-directory");
         builder.AddResource(resource)
             .WithArgs("app-arg")
+            .WithEntrypointArgs("test", static ctx => ctx.Args.Add(NullValueProvider.Instance))
             .WithDebugSupport(
                 mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
-                "test",
-                entrypointArgsCallback: static ctx => ctx.Args.Add(NullValueProvider.Instance));
+                "test");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5646,10 +5648,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         builder.AddResource(resource)
             .WithAnnotation(new TestProjectWithLaunchSettings())
             .WithArgs("app-arg")
+            .WithEntrypointArgs("custom", static _ => { })
             .WithDebugSupport(
                 mode => new ExecutableLaunchConfiguration("custom") { Mode = mode },
-                "custom",
-                entrypointArgsCallback: static _ => { });
+                "custom");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5681,10 +5683,10 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         builder.AddResource(resource)
             .WithAnnotation(new TestProjectWithLaunchSettings())
             .WithArgs("app-arg")
+            .WithEntrypointArgs("custom", static _ => { })
             .WithDebugSupport(
                 ThrowingLaunchConfiguration,
-                "custom",
-                entrypointArgsCallback: static _ => { });
+                "custom");
 
         var configDict = new Dictionary<string, string?>
         {
@@ -5733,16 +5735,18 @@ public class DcpExecutorTests(ITestOutputHelper outputHelper)
         var resource = new TestExecutableResource("test-working-directory");
         builder.AddResource(resource)
             .WithArgs("app-arg")
-            .WithDebugSupport(
-                mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
+            .WithEntrypointArgs(
                 "test",
-                entrypointArgsCallback: ctx =>
+                ctx =>
                 {
                     if (Interlocked.Increment(ref callbackCount) == 2)
                     {
                         ctx.Args.Add("run");
                     }
-                });
+                })
+            .WithDebugSupport(
+                mode => new ExecutableLaunchConfiguration("test") { Mode = mode },
+                "test");
 
         var configDict = new Dictionary<string, string?>
         {
