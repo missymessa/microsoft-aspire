@@ -54,7 +54,7 @@ internal class ArgumentsExecutionConfigurationGatherer : IExecutionConfiguration
         // PublishAsDockerFile() reuses the executable's annotations for the generated container resource. Note that
         // the container's own `WithArgs(c => c.Args.Clear())` cannot undo this, because the prefix is inserted after
         // all the ordinary argument callbacks have run.
-        if (resource is ContainerResource)
+        if (resource.IsContainer())
         {
             return;
         }
